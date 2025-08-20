@@ -12,8 +12,6 @@ mysql-connector-python = "*"
 scikit-learn = "*"
 numpy = "*"
 pydantic-settings = "*"
-torch = "*"
-transformers = "*"
 pandas = "*"
 
 [dev-packages]
