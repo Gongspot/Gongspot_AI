@@ -38,6 +38,11 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=sha,prefix=,format=short
 
+      - name: Clean up old Docker images
+        run: |
+          echo "Pruning unused Docker images and containers..."
+          docker system prune -af
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
         with:
