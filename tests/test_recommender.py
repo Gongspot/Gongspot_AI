@@ -30,50 +30,72 @@ class MockEnum:
     def __init__(self, value):
         self.value = value
 
+class MockQuery:
+    def __init__(self, items):
+        self.items = items
+
+    def all(self):
+        return self.items
+
+    def filter(self, condition):
+        recommended_ids = getattr(condition.right, 'value', [])
+        filtered = [p for p in self.items if p.place_id in recommended_ids]
+        return MockQuery(filtered)
+
 class MockDB:
     def __init__(self):
         self.users = [
-            MockUser(1, prefer_places=[MockEnum("park")], purposes=[MockEnum("relax")], locations=[MockEnum("seoul")]),
-            MockUser(2, prefer_places=[MockEnum("cafe")], purposes=[MockEnum("study")], locations=[MockEnum("busan")])
+            MockUser(
+                1,
+                prefer_places=[MockEnum("공공학습공간")],
+                purposes=[MockEnum("휴식")],
+                locations=[MockEnum("강북권")]
+            ),
+            MockUser(
+                2,
+                prefer_places=[MockEnum("카페")],
+                purposes=[MockEnum("집중공부")],
+                locations=[MockEnum("서남권")]
+            )
         ]
         self.places = [
-            MockPlace(101, "Seoul Park", types=[MockEnum("공원")], purposes=[MockEnum("relax")], moods=[MockEnum("happy")], locations=[MockEnum("seoul")]),
-            MockPlace(102, "Busan Cafe", types=[MockEnum("카페")], purposes=[MockEnum("study")], moods=[MockEnum("calm")], locations=[MockEnum("busan")])
+            MockPlace(
+                101, "Seoul Library",
+                types=[MockEnum("공공학습공간")],
+                purposes=[MockEnum("휴식")],
+                moods=[MockEnum("아늑한")],
+                locations=[MockEnum("강북권")]
+            ),
+            MockPlace(
+                102, "Busan Cafe",
+                types=[MockEnum("카페")],
+                purposes=[MockEnum("집중공부")],
+                moods=[MockEnum("조용한")],
+                locations=[MockEnum("서남권")]
+            )
         ]
         self.likes = [MockLike(2, 101)]
 
     def query(self, model):
         if model.__name__ == "UserDB":
-            return self
+            return MockQuery(self.users)
         elif model.__name__ == "PlaceDB":
-            return self
+            return MockQuery(self.places)
         elif model.__name__ == "LikeDB":
-            return self
-        return self
-
-    def all(self):
-        import inspect
-        caller_frame = inspect.stack()[1]
-        if 'UserDB' in caller_frame.code_context[0]:
-            return self.users
-        elif 'PlaceDB' in caller_frame.code_context[0]:
-            return self.places
-        elif 'LikeDB' in caller_frame.code_context[0]:
-            return self.likes
-        return []
-
-    def filter(self, condition):
-        recommended_ids = condition.right.value
-        return [p for p in self.places if p.place_id in recommended_ids]
+            return MockQuery(self.likes)
+        return MockQuery([])
 
 def test_recommender_basic():
     mock_db = MockDB()
     recommender = RecommenderFast(mock_db)
+
     assert len(recommender.user_profiles) == 2
-    assert recommender.user_profiles[1]["park"] > 0
-    assert recommender.user_profiles[2]["study"] > 0
+    assert recommender.user_profiles[1]["공공학습공간"] > 0
+    assert recommender.user_profiles[2]["집중공부"] > 0
+
     similar = recommender.get_similar_users(1)
     assert 2 in similar
+
     recommendations = recommender.recommend_places(1)
     assert len(recommendations) > 0
     assert isinstance(recommendations[0], PlaceRecommendation)
