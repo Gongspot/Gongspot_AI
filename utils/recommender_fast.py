@@ -1,30 +1,24 @@
-# recommender_fast.py
-
-import pandas as pd
+# utils/recommender_fast.py
 import numpy as np
-from typing import List, Dict
-from sklearn.metrics.pairwise import cosine_similarity
-from sqlalchemy.orm import Session
-from sqlalchemy import select
 from collections import Counter, defaultdict
+from typing import List
+from sklearn.metrics.pairwise import cosine_similarity
 import time
 
-from models.db_models import (
-    UserDB, LikeDB,
-    user_prefer_place_table, user_purpose_table, user_location_table,
-    place_purpose_table, place_mood_table
-)
+from sqlalchemy.orm import Session
+from models.db_models import UserDB, PlaceDB, LikeDB
+from models.models import PlaceRecommendation
+from models.enums import PlaceEnum
 
 class RecommenderFast:
     """
     빠른 사용자 기반 협업 필터링 추천 시스템.
-    사용자의 명시적 선호도와 좋아요 장소의 특징을 모두 반영합니다.
+    사용자의 명시적 선호도와 좋아요 장소의 특징을 모두 반영.
     """
     def __init__(self, db: Session):
-
         self.db = db
         self.user_profiles = {}
-        self.user_likes = {}
+        self.user_likes = defaultdict(set)
         self.similarity_matrix = None
         self.feature_columns = {}
         self.user_id_list = []
@@ -36,154 +30,113 @@ class RecommenderFast:
         self._load_data()
         self._create_feature_matrix()
         self._calculate_similarity()
-        end_time = time.time()
-        print(f"RecommenderFast 초기화 완료. 총 소요 시간: {end_time - start_time:.2f}초")
+        print(f"RecommenderFast 초기화 완료. 소요 시간: {time.time() - start_time:.2f}초")
 
     def _load_data(self):
-        print("데이터베이스에서 모든 데이터 로드 중...")
+        print("데이터 로드 중...")
         start_time = time.time()
 
-        # 1. 모든 사용자 정보 미리 로드
         users = self.db.query(UserDB).all()
-
-        # 2. 사용자-선호도 중간 테이블 데이터 한 번에 로드
-        prefer_places_data = self.db.execute(select(user_prefer_place_table)).fetchall()
-        purposes_data = self.db.execute(select(user_purpose_table)).fetchall()
-        locations_data = self.db.execute(select(user_location_table)).fetchall()
-
-        # 3. 장소-특징 중간 테이블 데이터 한 번에 로드
-        place_purposes_data = self.db.execute(select(place_purpose_table)).fetchall()
-        place_moods_data = self.db.execute(select(place_mood_table)).fetchall()
-
-        # 4. 모든 좋아요 미리 로드
+        places = {p.place_id: p for p in self.db.query(PlaceDB).all()}
         likes = self.db.query(LikeDB).all()
 
-        # 5. 데이터 그룹화 (사용자 선호도)
-        user_places_map = defaultdict(list)
-        for row in prefer_places_data:
-            user_places_map[row.user_id].append(row.value)
-
-        user_purposes_map = defaultdict(list)
-        for row in purposes_data:
-            user_purposes_map[row.user_id].append(row.value)
-
-        user_locations_map = defaultdict(list)
-        for row in locations_data:
-            user_locations_map[row.user_id].append(row.value)
-
-        # 6. 데이터 그룹화 (장소 특징)
-        place_purposes_map = defaultdict(list)
-        for row in place_purposes_data:
-            place_purposes_map[row.place_id].append(row.value)
-
-        place_moods_map = defaultdict(list)
-        for row in place_moods_data:
-            place_moods_map[row.place_id].append(row.value)
-
-        # 7. 좋아요 데이터 그룹화
-        self.user_likes = defaultdict(set)
+        # 사용자 좋아요 맵 생성
         for like in likes:
-            self.user_likes[like.user_id].add(like.place_id)
+            if isinstance(like.place_id, int):
+                self.user_likes[like.user_id].add(like.place_id)
+            else:
+                print(f"[WARN] 잘못된 place_id: {like.place_id} (type={type(like.place_id)})")
 
-        # 8. 모든 데이터를 결합하여 최종 사용자 프로필 생성
-        self.user_profiles = {}
+        # 사용자 프로필 생성
         for user in users:
             profile_features = Counter()
 
-            # 사용자의 명시적 선호도 반영
-            profile_features.update(user_places_map[user.user_id])
-            profile_features.update(user_purposes_map[user.user_id])
-            profile_features.update(user_locations_map[user.user_id])
+            # User의 M2M 관계 직접 반영
+            profile_features.update([p.value for p in user.prefer_places])
+            profile_features.update([p.value for p in user.purposes])
+            profile_features.update([l.value for l in user.locations])
 
-            # 사용자가 좋아요한 장소의 특징 반영
-            liked_places = self.user_likes[user.user_id]
-            for place_id in liked_places:
-                profile_features.update(place_purposes_map[place_id])
-                profile_features.update(place_moods_map[place_id])
-
+            # 좋아요한 장소 특징 반영
+            for place_id in self.user_likes[user.user_id]:
+                place = places.get(place_id)
+                if place:
+                    profile_features.update([p.value for p in place.purposes])
+                    profile_features.update([m.value for m in place.moods])
             self.user_profiles[user.user_id] = profile_features
 
-        end_time = time.time()
-        print(f"데이터 로드 및 프로필 생성 완료. 소요 시간: {end_time - start_time:.2f}초")
+        print(f"데이터 로드 완료. Users: {len(users)}, Places: {len(places)}, Likes: {len(likes)}")
+        print(f"데이터 로드 소요 시간: {time.time() - start_time:.2f}초")
 
     def _create_feature_matrix(self):
         print("피처 매트릭스 생성 중...")
-        start_time = time.time()
-
-        # 모든 가능한 피처 컬럼을 통합하여 생성
         all_features = set()
         for profile in self.user_profiles.values():
             all_features.update(profile.keys())
-
-        self.feature_columns = {col: i for i, col in enumerate(sorted(list(all_features)))}
+        self.feature_columns = {f: i for i, f in enumerate(sorted(all_features))}
 
         feature_matrix = []
         user_ids = []
         for user_id, profile in self.user_profiles.items():
             vec = [0] * len(self.feature_columns)
             for feature, count in profile.items():
-                if feature in self.feature_columns:
-                    idx = self.feature_columns[feature]
+                idx = self.feature_columns.get(feature)
+                if idx is not None:
                     vec[idx] = count
             feature_matrix.append(vec)
             user_ids.append(user_id)
 
         self.feature_matrix = np.array(feature_matrix)
         self.user_id_list = user_ids
-
-        end_time = time.time()
-        print(f"피처 매트릭스 생성 완료. 소요 시간: {end_time - start_time:.2f}초")
+        print("피처 매트릭스 생성 완료.")
 
     def _calculate_similarity(self):
         print("유사도 행렬 계산 중...")
-        start_time = time.time()
-
         if len(self.feature_matrix) == 0:
             self.similarity_matrix = np.array([])
         else:
             self.similarity_matrix = cosine_similarity(self.feature_matrix)
-
-        self.user_idx_map = {user_id: idx for idx, user_id in enumerate(self.user_id_list)}
-
-        end_time = time.time()
-        print(f"유사도 행렬 계산 완료. 소요 시간: {end_time - start_time:.2f}초")
+        self.user_idx_map = {uid: idx for idx, uid in enumerate(self.user_id_list)}
+        print("유사도 행렬 계산 완료.")
 
     def get_similar_users(self, target_user_id: int, n_users: int = 5) -> List[int]:
         if target_user_id not in self.user_idx_map:
             return []
-
         idx = self.user_idx_map[target_user_id]
         sim_scores = self.similarity_matrix[idx]
-
         user_id_list_np = np.array(self.user_id_list)
         is_not_target = user_id_list_np != target_user_id
-
         sorted_indices = np.argsort(sim_scores * is_not_target)[::-1]
-
         return [user_id_list_np[i] for i in sorted_indices[:n_users]]
 
-    def recommend_places(self, target_user_id: int, n_recommendations: int = 10) -> List[int]:
-        start_time = time.time()
-        print(f"추천 요청 시작: User ID {target_user_id}")
-
+    def recommend_places(self, target_user_id: int, n_recommendations: int = 10) -> List[PlaceRecommendation]:
         similar_users = self.get_similar_users(target_user_id)
         if not similar_users:
-            print("유사한 사용자가 없습니다. 추천을 생성하지 않습니다.")
             return []
 
-        all_candidate_places = []
+        candidate_places = []
         for uid in similar_users:
-            all_candidate_places.extend(self.user_likes.get(uid, []))
+            candidate_places.extend(self.user_likes.get(uid, []))
 
-        candidate_counts = Counter(all_candidate_places)
-
+        # 좋아요 이미 한 장소 제거
         liked = self.user_likes.get(target_user_id, set())
+        candidate_counts = Counter(candidate_places)
         for place_id in liked:
             candidate_counts.pop(place_id, None)
 
-        recommended = candidate_counts.most_common(n_recommendations)
+        recommended_ids = [pid for pid, _ in candidate_counts.most_common(n_recommendations)]
+        if not recommended_ids:
+            return []
 
-        end_time = time.time()
-        print(f"추천 완료. 추천된 장소 수: {len(recommended)}, 소요 시간: {end_time - start_time:.4f}초")
-
-        return [place_id for place_id, _ in recommended]
+        places = self.db.query(PlaceDB).filter(PlaceDB.place_id.in_(recommended_ids)).all()
+        recommended_places = [
+            PlaceRecommendation(
+                place_id=p.place_id,
+                name=p.name,
+                type=p.types[0].value if p.types else PlaceEnum.공공학습공간,
+                purpose=[x.value for x in p.purposes],
+                mood=[x.value for x in p.moods],
+                location=[x.value for x in p.locations]
+            )
+            for p in places
+        ]
+        return recommended_places

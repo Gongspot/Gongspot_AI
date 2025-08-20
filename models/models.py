@@ -3,6 +3,8 @@
 from typing import List, Optional
 from pydantic import BaseModel
 from models.enums import PlaceEnum, PurposeEnum, LocationEnum, MoodEnum
+from pydantic.v1 import validator
+
 
 class User(BaseModel):
     id: int
@@ -23,6 +25,14 @@ class PlaceRecommendation(BaseModel):
     purpose: Optional[List[PurposeEnum]] = []
     mood: Optional[List[MoodEnum]] = []
     location: Optional[List[LocationEnum]] = []
+    average_rating: Optional[float] = None
+
+    @validator('average_rating', pre=True)
+    def convert_rating_to_float(cls, v):
+        if v is None:
+            return None
+
+        return float(v)
 
 class RecommendationRequest(BaseModel):
     user_id: int
