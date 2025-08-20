@@ -85,7 +85,11 @@ jobs:
               --name gongspot-ai \
               -p 8000:8000 \
               --restart unless-stopped \
+              -e DB_USER=${{ secrets.DB_USER }} \
+              -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
+              -e DB_HOST=${{ secrets.DB_HOST }} \
+              -e DB_PORT=${{ secrets.DB_PORT }} \
+              -e DB_NAME=${{ secrets.DB_NAME }} \
               ${{ secrets.DOCKER_USERNAME }}/gongspot-ai:latest
-          
             echo "Deployment complete!"
           EOF
