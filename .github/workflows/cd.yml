@@ -66,6 +66,11 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
             set -e  # 오류 발생 시 즉시 종료
+
+            echo "Cleaning up old Docker data..."
+            docker system prune -af || true
+            docker volume prune -f || true
+            
             echo "Pulling the latest Docker image..."
             docker pull ${{ secrets.DOCKER_USERNAME }}/gongspot-ai:latest
 
