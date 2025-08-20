@@ -1,41 +1,45 @@
 # recommender.py
 
 import pandas as pd
+import numpy as np
 from typing import List
 from sklearn.metrics.pairwise import cosine_similarity
 from sqlalchemy.orm import Session
 
-from .db_models import UserDB, UserLike
-from .models import LocationEnum, PlaceEnum, PurposeEnum
+from models.db_models import UserDB, LikeDB
+from models.models import LocationEnum, PlaceEnum, PurposeEnum
 
 class Recommender:
-    """
-    사용자 기반 협업 필터링 추천 시스템 클래스
-    """
+    ''' 사용자 협업 필터링 기반 추천 클래스 '''
     def __init__(self, db: Session):
         self.db = db
-        # 모든 사용자 데이터와 좋아요 데이터를 초기화 시점에 미리 로드 (성능 최적화를 위해)
-        self.user_profiles = self._load_user_profiles()
-        self.user_likes = self._load_user_likes()
-        self.similarity_matrix = self._calculate_similarity()
+        self.user_profiles = None
+        self.user_likes = None
+        self.similarity_matrix = None
+
+    def _ensure_loaded(self):
+        if self.user_profiles is None:
+            self.user_profiles = self._load_user_profiles()
+        if self.user_likes is None:
+            self.user_likes = self._load_user_likes()
+        if self.similarity_matrix is None:
+            self.similarity_matrix = self._calculate_similarity()
 
     def _load_user_profiles(self) -> pd.DataFrame:
         """
         데이터베이스에서 모든 사용자의 선호 데이터를 로드하고 DataFrame으로 변환합니다.
         """
-        users = self.db.query(UserDB).all()
+        # users = self.db.query(UserDB).all()
+        users = self.db.query(UserDB.user_id, UserDB.prefer_place, UserDB.purpose, UserDB.location).all()
+
         data = []
         for user in users:
-            # 쉼표로 구분된 문자열을 리스트로 변환
-            prefer_place = user.prefer_place.split(',') if user.prefer_place else []
-            purpose = user.purpose.split(',') if user.purpose else []
-            location = user.location.split(',') if user.location else []
-
+            # Java 엔티티 기준: prefer_place, purpose, location이 리스트 형태로 이미 존재
             data.append({
                 'user_id': user.user_id,
-                'prefer_place': prefer_place,
-                'purpose': purpose,
-                'location': location
+                'prefer_place': [p.value for p in user.prefer_place] if user.prefer_place else [],
+                'purpose': [p.value for p in user.purpose] if user.purpose else [],
+                'location': [l.value for l in user.location] if user.location else []
             })
         return pd.DataFrame(data).set_index('user_id')
 
@@ -43,9 +47,10 @@ class Recommender:
         """
         데이터베이스에서 모든 사용자의 '좋아요' 기록을 로드합니다.
         """
-        likes = self.db.query(UserLike).all()
+        likes = self.db.query(LikeDB).all()
         data = [{'user_id': like.user_id, 'place_id': like.place_id} for like in likes]
         return pd.DataFrame(data)
+
 
     def _create_feature_matrix(self) -> pd.DataFrame:
         """
@@ -89,18 +94,15 @@ class Recommender:
         )
         return similarity_df
 
-    def get_similar_users(self, target_user_id: int, n_users: int = 5) -> List[int]:
-        """
-        특정 사용자와 가장 유사한 사용자들의 ID를 반환합니다.
-        """
-        if self.similarity_matrix.empty or target_user_id not in self.similarity_matrix.index:
+    def get_similar_users(self, target_user_id: int, n_users: int = 5):
+        feature_matrix = self._create_feature_matrix()
+        if target_user_id not in feature_matrix.index:
             return []
+        target_vec = feature_matrix.loc[target_user_id].values.reshape(1, -1)
+        others = feature_matrix.drop(target_user_id)
+        sim = cosine_similarity(target_vec, others)[0]
+        return others.index[np.argsort(sim)[::-1][:n_users]].tolist()
 
-        # 자기 자신을 제외하고 유사도 상위 n명의 사용자 찾기
-        similar_users = self.similarity_matrix.loc[target_user_id].sort_values(ascending=False)
-        similar_users = similar_users[similar_users.index != target_user_id]
-
-        return similar_users.head(n_users).index.tolist()
 
     def recommend_places(self, target_user_id: int, n_recommendations: int = 10) -> List[int]:
         """

@@ -10,6 +10,7 @@ pydantic = "*"
 sqlalchemy = "*"
 mysql-connector-python = "*"
 scikit-learn = "*"
+
 torch = "*"
 transformers = "*"
 dotenv = "load_dotenv"
