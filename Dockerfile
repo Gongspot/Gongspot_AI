@@ -2,11 +2,15 @@ FROM python:3.10-slim-bullseye
 
 WORKDIR /app
 
-# 종속성 설치 캐시 활용
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    default-libmysqlclient-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY Pipfile Pipfile.lock ./
 
-RUN pip install pipenv
-RUN pipenv sync --system --dev
+RUN pip install --upgrade pip pipenv && \
+    pipenv install --system --deploy
 
 COPY . .
 EXPOSE 8000
