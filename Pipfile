@@ -16,11 +16,6 @@ torch = "*"
 transformers = "*"
 pandas = "*"
 
-torch = "*"
-transformers = "*"
-dotenv = "load_dotenv"
-pandas = "*"
-
 [dev-packages]
 
 [requires]

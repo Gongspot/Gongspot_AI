@@ -30,8 +30,17 @@ jobs:
       - name: Install Pipenv
         run: pip install pipenv
 
+      - name: Cache Pipenv Virtual Environment
+        id: cache-pipenv
+        uses: actions/cache@v3
+        with:
+          path: ~/.local/share/virtualenvs
+          key: ${{ runner.os }}-pipenv-${{ hashFiles('**/Pipfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pipenv-
+
       - name: Install dependencies
-        run: pipenv install --dev
+        run: pipenv install --dev --skip-lock
 
       - name: Run tests
         run: pipenv run pytest

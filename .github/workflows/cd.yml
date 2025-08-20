@@ -1,5 +1,3 @@
-# .github/workflows/cd.yml
-
 name: CD - Deploy to Production
 
 on:
@@ -7,7 +5,7 @@ on:
     branches:
       - main
     tags:
-      - 'v*' # 'v1.0.0'과 같은 태그가 푸시될 때
+      - 'v*'
 
 jobs:
   deploy:
@@ -16,21 +14,66 @@ jobs:
     environment: production
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
-      - name: Log in to Docker Hub
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Extract Docker metadata for tags
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ secrets.DOCKER_USERNAME }}/gongspot-ai
+          tags: |
+            type=schedule
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=,format=short
+
       - name: Build and push Docker image
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v4
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/gongspot-ai:latest
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Install SSH Client
+        run: sudo apt-get update && sudo apt-get install -y openssh-client
+
+      - name: Add SSH Key to Agent
+        uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Deploy to Server
         run: |
-          ssh user@your-server-ip "docker pull ${{ secrets.DOCKER_USERNAME }}/gongspot-ai:latest && docker-compose up -d"
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+            set -e  # 오류 발생 시 즉시 종료
+            echo "Pulling the latest Docker image..."
+            docker pull ${{ secrets.DOCKER_USERNAME }}/gongspot-ai:latest
+
+            echo "Stopping existing containers..."
+            docker stop gongspot-ai || true
+
+            echo "Removing old containers..."
+            docker rm gongspot-ai || true
+
+            echo "Starting new container..."
+            docker run -d \
+              --name gongspot-ai \
+              -p 8000:8000 \
+              --restart unless-stopped \
+              ${{ secrets.DOCKER_USERNAME }}/gongspot-ai:latest
+          
+            echo "Deployment complete!"
+          EOF
