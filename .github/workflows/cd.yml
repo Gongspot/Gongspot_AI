@@ -43,7 +43,10 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags:
+            |
+            ${{ secrets.DOCKER_USERNAME }}/gongspot-ai:latest
+            ${{ secrets.DOCKER_USERNAME }}/gongspot-ai:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Install SSH Client
