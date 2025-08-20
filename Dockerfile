@@ -8,8 +8,6 @@ COPY Pipfile Pipfile.lock ./
 RUN pip install pipenv
 RUN pipenv sync --system --dev
 
-COPY .env .env
-
 COPY . .
 EXPOSE 8000
 
