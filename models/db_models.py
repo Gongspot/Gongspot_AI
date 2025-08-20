@@ -51,6 +51,7 @@ class PlaceDB(Base):
     moods = relationship("PlaceMoodDB", back_populates="place", cascade="all, delete-orphan")
     locations = relationship("PlaceLocationDB", back_populates="place", cascade="all, delete-orphan")
     types = relationship("PlaceTypeDB", back_populates="place", cascade="all, delete-orphan")
+    photo_url = Column(String)
 
     reviews: Mapped[list["ReviewDB"]] = relationship(
         "ReviewDB", back_populates="place"
