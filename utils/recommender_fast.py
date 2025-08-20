@@ -135,7 +135,8 @@ class RecommenderFast:
                 type=p.types[0].value if p.types else PlaceEnum.공공학습공간,
                 purpose=[x.value for x in p.purposes],
                 mood=[x.value for x in p.moods],
-                location=[x.value for x in p.locations]
+                location=[x.value for x in p.locations],
+                photo_url=p.photo_url
             )
             for p in places
         ]

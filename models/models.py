@@ -26,6 +26,7 @@ class PlaceRecommendation(BaseModel):
     mood: Optional[List[MoodEnum]] = []
     location: Optional[List[LocationEnum]] = []
     average_rating: Optional[float] = None
+    photo_url: Optional[str] = None
 
     @validator('average_rating', pre=True)
     def convert_rating_to_float(cls, v):
