@@ -1,3 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE
 .idea/
+.vscode/
 .iml
+
+# Local Environment & Secrets
 .env
+venv/
+env/
+.Python
