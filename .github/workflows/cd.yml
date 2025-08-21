@@ -96,10 +96,12 @@ jobs:
 
       - name: Deploy Nginx config
         run: |
-          scp -o StrictHostKeyChecking=no .nginx/nginx.conf ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/etc/nginx/sites-available/gongspot.conf
+          scp -o StrictHostKeyChecking=no ./.nginx/nginx.conf ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/tmp/gongspot.conf
+
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
             set -e
-            ln -sf /etc/nginx/sites-available/gongspot.conf /etc/nginx/sites-enabled/
-            nginx -t
+            sudo mv /tmp/gongspot.conf /etc/nginx/sites-available/gongspot.conf
+            sudo ln -sf /etc/nginx/sites-available/gongspot.conf /etc/nginx/sites-enabled/
+            sudo nginx -t
             sudo systemctl restart nginx
           EOF
