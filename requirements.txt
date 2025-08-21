@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+pydantic
+sqlalchemy
+mysql-connector-python
+numpy
+scipy
+scikit-learn
+pandas
+python-dotenv
+exceptiongroup
+pydantic-settings
+pytest
