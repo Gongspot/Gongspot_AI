@@ -83,6 +83,7 @@ jobs:
             echo "Starting new container..."
             docker run -d \
               --name gongspot-ai \
+              --network host \
               -p 8000:8000 \
               --restart unless-stopped \
               -e DB_USER=${{ secrets.DB_USER }} \
