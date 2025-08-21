@@ -92,4 +92,13 @@ jobs:
               -e DB_NAME=${{ secrets.DB_NAME }} \
               ${{ secrets.DOCKER_USERNAME }}/gongspot-ai:latest
             echo "Deployment complete!"
+
+      - name: Deploy Nginx config
+        run: |
+          scp -o StrictHostKeyChecking=no gongspot-ai/.nginx/nginx.conf ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/etc/nginx/sites-available/gongspot.conf
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+            set -e
+            ln -sf /etc/nginx/sites-available/gongspot.conf /etc/nginx/sites-enabled/
+            nginx -t
+            sudo systemctl restart nginx
           EOF
