@@ -20,6 +20,8 @@ class MockPlace:
         self.moods = moods or []
         self.locations = locations or []
         self.photo_url = photo_url
+        self.is_free = is_free
+        self.location = address
 
 class MockLike:
     def __init__(self, user_id, place_id):
@@ -64,26 +66,21 @@ class MockDB:
                 types=[MockEnum("공공학습공간")],
                 purposes=[MockEnum("휴식")],
                 moods=[MockEnum("아늑한")],
-                locations=[MockEnum("강북권")]
+                locations=[MockEnum("강북권")],
+                is_free=True,  # Add is_free
+                address="서울특별시 강북구 도봉로123" # Add a mock address
             ),
             MockPlace(
                 102, "Busan Cafe",
                 types=[MockEnum("카페")],
                 purposes=[MockEnum("집중공부")],
                 moods=[MockEnum("조용한")],
-                locations=[MockEnum("서남권")]
+                locations=[MockEnum("서남권")],
+                is_free=False,
+                address="부산광역시 해운대구 센텀로456"
             )
         ]
         self.likes = [MockLike(2, 101)]
-
-    def query(self, model):
-        if model.__name__ == "UserDB":
-            return MockQuery(self.users)
-        elif model.__name__ == "PlaceDB":
-            return MockQuery(self.places)
-        elif model.__name__ == "LikeDB":
-            return MockQuery(self.likes)
-        return MockQuery([])
 
 def test_recommender_basic():
     mock_db = MockDB()
@@ -100,3 +97,9 @@ def test_recommender_basic():
     assert len(recommendations) > 0
     assert isinstance(recommendations[0], PlaceRecommendation)
     assert recommendations[0].place_id == 101
+
+    recommended_place = recommendations[0]
+    assert recommended_place.address == "서울특별시 강북구 도봉로123"
+    assert recommended_place.is_free is True
+    assert recommended_place.name == "Seoul Library"
+    assert recommended_place.type == PlaceEnum.공공학습공간
