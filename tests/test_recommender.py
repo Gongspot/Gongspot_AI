@@ -82,6 +82,15 @@ class MockDB:
         ]
         self.likes = [MockLike(2, 101)]
 
+    def query(self, model):
+        if model.__name__ == "UserDB":
+            return MockQuery(self.users)
+        elif model.__name__ == "PlaceDB":
+            return MockQuery(self.places)
+        elif model.__name__ == "LikeDB":
+            return MockQuery(self.likes)
+        return MockQuery([])
+
 def test_recommender_basic():
     mock_db = MockDB()
     recommender = RecommenderFast(mock_db)
