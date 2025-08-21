@@ -12,7 +12,7 @@ class MockUser:
         self.locations = locations or []
 
 class MockPlace:
-    def __init__(self, place_id, name, types=None, purposes=None, moods=None, locations=None, photo_url=""):
+    def __init__(self, place_id, name, types=None, purposes=None, moods=None, locations=None, is_free=None, address=None, photo_url=""):
         self.place_id = place_id
         self.name = name
         self.types = types or []
