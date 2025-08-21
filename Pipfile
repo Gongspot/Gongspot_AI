@@ -10,9 +10,12 @@ pydantic = "*"
 sqlalchemy = "*"
 mysql-connector-python = "*"
 numpy = "*"
+scipy = "*"
+scikit-learn = "*"
 pydantic-settings = "*"
 pandas = "*"
 exceptiongroup = "*"
+python-dotenv = "*"
 
 [dev-packages]
 pytest = "*"
