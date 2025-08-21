@@ -3,8 +3,9 @@
 import time
 from fastapi import FastAPI, Depends, status, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func # func 임포트 추가
+from sqlalchemy import func
 from contextlib import asynccontextmanager
+from fastapi.middleware.cors import CORSMiddleware
 
 from utils.database import get_db, engine, SessionLocal
 from utils.recommender_fast import RecommenderFast
@@ -39,6 +40,19 @@ async def lifespan(app: FastAPI):
 
 # FastAPI 앱 생성
 app = FastAPI(title="GongSpot Recommendation API", lifespan=lifespan)
+
+origins = [
+    "http://localhost:5182",
+    "https://gong-spot.com"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 def read_root():
