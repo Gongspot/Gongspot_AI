@@ -1,6 +1,6 @@
 # db_models.py
 
-from sqlalchemy import Column, BigInteger, String, DateTime, Enum, ForeignKey, Integer
+from sqlalchemy import Column, BigInteger, String, DateTime, Enum, ForeignKey, Integer, Boolean
 from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy.orm import Mapped, mapped_column
 from models.enums import PlaceEnum, PurposeEnum, LocationEnum, MoodEnum
@@ -45,7 +45,8 @@ class PlaceDB(Base):
 
     place_id = Column(BigInteger, primary_key=True, autoincrement=True)
     name = Column(String(255))
-
+    location = Column(String(255))
+    is_free = Column(Boolean)
     likes = relationship("LikeDB", back_populates="place", cascade="all, delete-orphan")
     purposes = relationship("PlacePurposeDB", back_populates="place", cascade="all, delete-orphan")
     moods = relationship("PlaceMoodDB", back_populates="place", cascade="all, delete-orphan")

@@ -21,6 +21,8 @@ class User(BaseModel):
 class PlaceRecommendation(BaseModel):
     place_id: int
     name: str
+    address: Optional[str] = None
+    is_free: Optional[bool] = None
     type: Optional[PlaceEnum] = None
     purpose: Optional[List[PurposeEnum]] = []
     mood: Optional[List[MoodEnum]] = []

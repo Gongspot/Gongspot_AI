@@ -132,6 +132,8 @@ class RecommenderFast:
             PlaceRecommendation(
                 place_id=p.place_id,
                 name=p.name,
+                address=p.location,
+                is_free=p.is_free,
                 type=p.types[0].value if p.types else PlaceEnum.공공학습공간,
                 purpose=[x.value for x in p.purposes],
                 mood=[x.value for x in p.moods],
@@ -140,4 +142,7 @@ class RecommenderFast:
             )
             for p in places
         ]
+        for p in recommended_places:
+            print("DEBUG:", p.dict(exclude_none=False))
+
         return recommended_places
